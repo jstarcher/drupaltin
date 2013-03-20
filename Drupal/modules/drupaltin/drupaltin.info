@@ -1,0 +1,10 @@
+; $Id: drupaltin.info,v 5.x-1.0a 2007/01/27 23:02:36 dries Exp $
+name = Drupaltin
+description = Adds functionality to allow users from vBulletin to log in and out of Drupal seamlessly
+package =
+version = VERSION
+
+; Information added by drupal.org packaging script on 2007-01-15
+version = "5.x-1.0a"
+project = "drupal"
+

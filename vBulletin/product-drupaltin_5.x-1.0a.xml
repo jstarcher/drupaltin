@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<product productid="drupaltin" active="1">
+	<title>Drupaltin</title>
+	<description>Drupaltin is a module designed to integrate Drupal with a vBulletin forum.</description>
+	<version>5.x-1.0a</version>
+	<url>http://www.theoverclocked.com/drupaltin</url>
+	<versioncheckurl>http://www.theoverclocked.com/drupaltin.xml</versioncheckurl>
+	<dependencies>
+		<dependency dependencytype="vbulletin" minversion="3.6.0" maxversion="" />
+	</dependencies>
+	<codes>
+		<code version="1.00">
+			<installcode><![CDATA[if (file_exists(DIR . '/includes/drupaltin_config.php') == true)
+	{
+
+require_once(DIR . '/includes/drupaltin_config.php');
+$connector = new DbConnector();
+/**
+ * Backup the original users table so we can restore it if we need to
+ */
+$backup = "CREATE TABLE users_backup SELECT * FROM users";
+		if(!$connector->query($backup))
+	{
+		echo mysql_error();
+		exit();
+	}
+
+/**
+ * Delete all the old data from the users table now that it has been backed up, prepares us for the new dump :)
+ */
+$truncate = "TRUNCATE TABLE users";
+		if(!$connector->query($truncate))
+	{
+		echo mysql_error();
+		exit();
+	}
+
+
+/** 
+ * Here is where we read the database values that we need from the vB database and drump them into the Drupal database
+ */
+$query = $vbulletin->db->query_read("SELECT userid, username, password, email, joindate, timezoneoffset FROM user");
+
+while ($row = mysql_fetch_object($query))
+{
+	$row->timezoneoffset = intval($row->timezoneoffset) * 3600;
+	$insert = sprintf("INSERT INTO `users` (
+		`uid`, `name`, `pass`, `mail`, `mode`, `sort`, `threshold`, `theme`, `signature`, `created`, `access`, 
+		`login`, `status`, `timezone`, `language`, `picture`, `init`, `data`) 
+		VALUES (
+		'%s', '%s', '%s', '%s', '0', '0', '0', '', '',  '%s', '0', '0', '1', '%s', '', '', '%s', 'a:0:{}')",
+		mysql_real_escape_string($row->userid),
+		mysql_real_escape_string($row->username),
+		mysql_real_escape_string($row->password),
+		mysql_real_escape_string($row->email),
+		mysql_real_escape_string($row->joindate),
+		mysql_real_escape_string($row->timezoneoffset),	
+		mysql_real_escape_string($row->email));	
+
+	if(!$connector->query($insert))
+	{
+		echo mysql_error();
+		exit();
+	}
+}
+	
+	} else {
+	echo "Missing drupaltin_config.php file. Please upload to /vbforums/includes/ and try again.";
+	
+}]]></installcode>
+			<uninstallcode><![CDATA[if (file_exists(DIR . '/includes/drupaltin_config.php') == true)
+	{
+
+require_once(DIR . '/includes/drupaltin_config.php');
+$connector = new DbConnector();
+/**
+ * Delete all the old data from the users table, prepares us for the dumping the old users :)
+ */
+$truncate = "TRUNCATE TABLE users";
+		if(!$connector->query($truncate))
+	{
+		echo mysql_error();
+		exit();
+	}
+
+/** 
+ * Here is where we read the database values that we need from the vB database and drump them into the Drupal database
+ */
+$query = $connector->query("SELECT `uid`, `name`, `pass`, `mail`, `mode`, `sort`, `threshold`, `theme`, `signature`, `created`, `access`, 
+		`login`, `status`, `timezone`, `language`, `picture`, `init`, `data` FROM `users_backup`;");
+
+while ($row = mysql_fetch_object($query))
+{
+	$insert = sprintf("INSERT INTO `users` (
+		`uid`, `name`, `pass`, `mail`, `mode`, `sort`, `threshold`, `theme`, `signature`, `created`, `access`, 
+		`login`, `status`, `timezone`, `language`, `picture`, `init`, `data`) 
+		VALUES (
+		'%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',  '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+		mysql_real_escape_string($row->uid),
+		mysql_real_escape_string($row->name),
+		mysql_real_escape_string($row->pass),
+		mysql_real_escape_string($row->mail),
+		mysql_real_escape_string($row->mode),
+		mysql_real_escape_string($row->sort),
+		mysql_real_escape_string($row->threshold),
+		mysql_real_escape_string($row->theme),
+		mysql_real_escape_string($row->signature),
+		mysql_real_escape_string($row->created),
+		mysql_real_escape_string($row->access),
+		mysql_real_escape_string($row->login),
+		mysql_real_escape_string($row->status),
+		mysql_real_escape_string($row->timezone),
+		mysql_real_escape_string($row->language),	
+		mysql_real_escape_string($row->picture),
+		mysql_real_escape_string($row->init),	
+		mysql_real_escape_string($row->data));
+
+	if(!$connector->query($insert))
+	{
+		echo mysql_error();
+		exit();
+	}
+}
+
+
+
+/**
+ * Drop the old users_backup table since we no longer need it
+ */
+$drop = "DROP TABLE users_backup";
+		if(!$connector->query($drop))
+	{
+		echo mysql_error();
+		exit();
+	}
+
+	
+	} else {
+	echo "Missing drupaltin_config.php file. Please upload to /vbforums/includes/ and try again.";
+	
+}]]></uninstallcode>
+		</code>
+	</codes>
+	<templates>
+	</templates>
+	<plugins>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Open Drupal session and cookie</title>
+			<hookname>login_verify_success</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+require_once($drup_main_dir . '/includes/bootstrap.inc');
+$connector = new DbConnector();
+
+$drupaltin_logout_cwd = getcwd();
+chdir($drup_main_dir);
+drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+chdir($drupaltin_logout_cwd);
+/**
+ * Dump the MD5 of the password the user entered into the Drupal database since vB doesn't store the password in pure MD5
+ */
+
+$dvb_md5 = md5($vbulletin->GPC['vb_login_password']);
+$UpdateQuery = sprintf("UPDATE users SET pass = '%s' WHERE name = '%s'",
+		mysql_real_escape_string($dvb_md5),	
+		mysql_real_escape_string($vbulletin->GPC['vb_login_username']));
+
+$connector->query($UpdateQuery);
+
+/**
+ * Start the Drupal session and push a cookie
+ */
+$name = $vbulletin->GPC['vb_login_username'];
+$pass = $vbulletin->GPC['vb_login_password'];
+user_authenticate($name, $pass);
+
+// Sha1 the created
+$drupaltin_login_fetch = sprintf("SELECT created FROM users WHERE name = '%s'",
+		mysql_real_escape_string($vbulletin->GPC['vb_login_username']));
+
+$drupaltin_login_connect = $connector->query($drupaltin_login_fetch);
+$drupaltin_login_created = mysql_fetch_row($drupaltin_login_connect);
+$drupaltin_login_hash = sha1($drupaltin_login_created['0']);
+
+// Setup for external cookie
+$_POST['drupaltin_username'] = $vbulletin->GPC['vb_login_username'];
+$_POST['drupaltin_password'] = $vbulletin->GPC['vb_login_password'];
+$_POST['drupaltin_login_hash'] = $drupaltin_login_hash;
+
+$drupaltin_login = include $drup_main_http . '/drupaltin_login.php';
+
+if ($drupaltin_login != '1') {
+   echo "erm, could not set correct Drupal cookies. Notify the Administrator please!";
+   exit;
+}]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Kill Drupal session and cookies</title>
+			<hookname>logout_process</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+require_once($drup_main_dir . '/includes/bootstrap.inc');
+
+$drupaltin_logout_cwd = getcwd();
+chdir($drup_main_dir);
+drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+user_logout();
+chdir($drupaltin_logout_cwd);]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Update timezoneoffset when changed in profile</title>
+			<hookname>profile_updateoptions</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+$connector = new DbConnector();
+
+/*
+ * Update timezone in the Drupal database
+ */
+
+$vbulletin->GPC['timezoneoffset'] = intval($vbulletin->GPC['timezoneoffset']) * 3600;
+
+$UpdateQuery = sprintf("UPDATE users SET timezone = '%s' WHERE name = '%s'",
+		mysql_real_escape_string($vbulletin->GPC['timezoneoffset']),
+		mysql_real_escape_string($vbulletin->userinfo['username']));
+
+$connector->query($UpdateQuery);]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Update email and password when changed in profile</title>
+			<hookname>profile_updatepassword_complete</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+$connector = new DbConnector();
+
+/*
+ * Update the email and password in Drupal upon changing
+ */
+
+if ($vbulletin->GPC['newpassword']) {
+	$UpdateQuery = sprintf("UPDATE users SET pass = '%s' WHERE uid = '%s'",
+		mysql_real_escape_string($vbulletin->GPC['newpassword']),	
+		mysql_real_escape_string($vbulletin->userinfo['userid']));
+
+	$connector->query($UpdateQuery);
+}
+
+$UpdateQuery = sprintf("UPDATE users SET mail = '%s' WHERE uid = '%s'",
+		mysql_real_escape_string($vbulletin->GPC['email']),	
+		mysql_real_escape_string($vbulletin->userinfo['userid']));
+
+$connector->query($UpdateQuery);
+
+$UpdateQuery = sprintf("UPDATE users SET init = '%s' WHERE uid = '%s'",
+		mysql_real_escape_string($vbulletin->GPC['email']),	
+		mysql_real_escape_string($vbulletin->userinfo['userid']));
+
+$connector->query($UpdateQuery);]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Register the user at Drupal automagically</title>
+			<hookname>register_addmember_complete</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+
+
+//*** Figure out the timezone settings and convert them to work in the Drupal vB
+//    Divided by 3600 b/c the Drupal system.module timezone form is in seconds   
+$vbulletin->GPC['timezoneoffset'] = intval($vbulletin->GPC['timezoneoffset']) * 3600;
+
+## Connect to Drupal database and dump the values
+$connector = new DbConnector();
+
+$insertQuery = sprintf("INSERT INTO `users` (
+	`uid`, `name`, `pass`, `mail`, `mode`, `sort`, `threshold`, `theme`, `signature`, `created`, `access`, `login`,
+	 `status`, `timezone`, `language`, `picture`, `init`, `data`)
+	VALUES ('%s', '%s', '%s', '%s', '0', '0', '0', '', '', '0', '0', '0', '1', '%s', '', '', '%s', 'a:0:{}')",
+		mysql_real_escape_string($vbulletin->userinfo['userid']),
+		mysql_real_escape_string($vbulletin->GPC['username']),
+		mysql_real_escape_string($vbulletin->GPC['password_md5']),
+		mysql_real_escape_string($vbulletin->GPC['email']),	
+		mysql_real_escape_string($vbulletin->GPC['timezoneoffset']),
+		mysql_real_escape_string($vbulletin->GPC['email']));
+
+    ## Save the form data into the database
+    if ($result = $connector->query($insertQuery)){
+
+        ## It worked
+        return;
+
+    }else{
+
+        ## It hasn't worked so stop. Better error handling code would be good here!
+        exit;
+
+    }]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Delete user from Drupal database when they get pruned</title>
+			<hookname>useradmin_prune</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+$connector = new DbConnector();
+
+/*
+ * Delete user from Drupal when they get pruned
+ */
+
+$DeleteQuery = "DELETE FROM users WHERE userid IN ($userids)";
+$connector->query($DeleteQuery);]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Delete user from Drupal database</title>
+			<hookname>userdata_delete</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+$connector = new DbConnector();
+
+/**
+ * Delete the user from the Drupal database
+ */
+$DeleteQuery = sprintf("DELETE FROM users WHERE uid='%s'",
+		mysql_real_escape_string($this->existing['userid']));
+
+$connector->query($DeleteQuery);]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Drupaltin - Update username when changed by an admin</title>
+			<hookname>userdata_update_username</hookname>
+			<phpcode><![CDATA[require_once(DIR . '/includes/drupaltin_config.php');
+$connector = new DbConnector();
+
+/*
+ * Update username when changed by an admin
+ */
+
+if ($doupdate) {
+	$UpdateQuery = sprintf("UPDATE users SET name = '%s' WHERE uid='%s'",
+		mysql_real_escape_string($this->dbobject->escape_string($username)),	
+		mysql_real_escape_string($userid));
+
+	$connector->query($UpdateQuery);
+}]]></phpcode>
+		</plugin>
+	</plugins>
+	<phrases>
+	</phrases>
+	<options>
+	</options>
+	<helptopics>
+	</helptopics>
+	<cronentries>
+	</cronentries>
+	<faqentries>
+	</faqentries>
+</product>

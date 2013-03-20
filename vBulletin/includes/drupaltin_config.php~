@@ -1,0 +1,154 @@
+<?php 
+
+   /*============================================================================*\  
+   ||                               -= Drupaltin =-                              ||
+   ||                                                                            ||
+   || By Jordan Starcher                                                         ||
+   || drupaltin_config.php -> /vbforums/includes/                                ||
+   || Engineered for Drupal 5.x & vB 3.6.x                                       ||
+   || Project Version 5.x-1.0a                                                   || 
+   || File Version 1.01                                                          ||
+   || February 17, 2007                                                          ||
+   || Release under the GPL license                                              ||
+   ||                                                                            ||
+   ||                                                                            ||
+   ||                              Copyright ©2007                               ||
+   ||                      http://www.TheOverclocked.com                         ||
+   \*============================================================================*/
+
+/***************************************************************************\
+ * Info: Drupaltin is a vBulletin plugin to integrate Drupal with a        *
+ *       vBulletin forum. No Drupal or vB functionality is sacrificed,     *  
+ *	 as the core code remains unchanged and no tables are modified or  *
+ *	 created in the vBulletin database. A Drupal module is also        *
+ *	 provided to replace the Login form and Logout button.             *
+\***************************************************************************/
+ 
+/***************************************************************************\
+ * Installation Information:                                               *
+ * - Please view README.txt for installation instructions.                 *
+ * - More info available at http://www.TheOverclocked.com/Drupaltin        *
+\***************************************************************************/
+
+
+//////////////////////////////////////////////////
+//+--------------------------------------------+//
+//|  Define the webserver and path parameters  |//
+//+--------------------------------------------+//
+//////////////////////////////////////////////////
+
+         
+/**                                                           
+ * PATHS INFO   ##### NO TRAILING SLASHES #####                                 
+ */                                        
+// Drupal server path
+$drup_main_dir = '/var/www/theoverclocked.com'; 
+
+// vBulletin server path
+$vb_main_dir = '/var/www/forums.theoverclocked.com';
+
+// Drupal http path
+$drup_main_http = 'http://www.theoverclocked.com';
+
+
+/**/ ####### Ignore this ####### /**/
+/**/ class SystemComponent {     /**/
+/**/    var $settings;           /**/
+/**/	function getSettings() { /**/
+/**/ ####### Ignore this ####### /**/
+
+
+/**
+ * DRUPAL DATABASE INFO
+ */
+$settings['dbhost'] = 'localhost';
+$settings['dbusername'] = '';
+$settings['dbpassword'] = '';
+$settings['dbname'] = 'drupal';
+
+
+//////////////////////////////////////////////////////
+//+------------------------------------------------+//
+//|  END Define the webserver and path parameters  |//
+//+------------------------------------------------+//
+//////////////////////////////////////////////////////
+
+
+
+//
+// DO NOT EDIT BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING
+///////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+        return $settings;
+
+    }
+
+}
+
+class DbConnector extends SystemComponent {
+
+    var $theQuery;
+    var $link;
+
+    //*** Function: DbConnector, Purpose: Connect to the database ***
+    function DbConnector(){
+
+        // Load settings from parent class
+        $settings = SystemComponent::getSettings();
+
+        // Get the main settings from the array we just loaded
+        $host = $settings['dbhost'];
+        $db = $settings['dbname'];
+        $user = $settings['dbusername'];
+        $pass = $settings['dbpassword'];
+
+        // Connect to the database
+        $this->link = mysql_connect($host, $user, $pass);
+        mysql_select_db($db);
+        register_shutdown_function(array(&$this, 'close'));
+
+    }
+
+    //*** Function: query, Purpose: Execute a database query ***
+    function query($query) {
+
+        $this->theQuery = $query;
+        return mysql_query($query, $this->link);
+
+    }
+
+    //*** Function: fetchArray, Purpose: Get array of query results ***
+    function fetchArray($result) {
+
+        return mysql_fetch_array($result);
+
+    }
+
+    //*** Function: close, Purpose: Close the connection ***
+    function close() {
+
+        mysql_close($this->link);
+
+    }
+
+
+}
+
+
+//////////////////////////////
+//////// Dev Sandbox ////////
+////////////////////////////
+//INSERT INTO `role` (`rid`, `name`) VALUES ('', 'banned user');
+//
+//
+//
+?>
